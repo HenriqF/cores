@@ -1,6 +1,27 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
+#include <ctype.h>
+//incluir cor normal
+
+int hextodouble(char* valor, int length){
+    double res = 0;
+    int mult = 1;
+    while(--length >= 0){
+        if (valor[length] >= '0' && valor[length] <= '9'){
+            res += (int)(valor[length] - '0')*mult;
+            mult*=16;
+            continue;
+        }
+        char c = tolower(valor[length]);
+        if (c >= 'a' && c <= 'f'){
+            res += (10 + (int)(c - 'a'))*mult;
+            mult*=16;
+        }
+    }
+    return res;
+}
 
 double wrapfmod(double a, double b){
     double r = fmod(a, b);
@@ -87,6 +108,21 @@ void rotateColor(double* r, double* g, double* b, double angle){
     }
     hslToRgb(r,g,b);
 }
+void saturateColor(double* r, double* g, double* b, double value){
+    rgbToHsl(r, g, b);
+    (*g) += value*(*g);
+    if ((*g) > 1) (*g) = 1;
+    if ((*g) < 0) (*g) = 0;
+    hslToRgb(r,g,b);
+}
+void lightColor(double* r, double* g, double* b, double value){
+    rgbToHsl(r, g, b);
+    (*b) += value*(*b);
+    if ((*b) > 1) (*b) = 1;
+    if ((*b) < 0) (*b) = 0;
+    hslToRgb(r,g,b);
+}
+
 
 void newFile(){
     FILE* read = fopen("template.html", "rb");
@@ -100,6 +136,11 @@ void newFile(){
         fwrite(buffer, 1, n, write);
     }
     fclose(read);
+    fclose(write);
+}
+void appendTitle(char* title){
+    FILE* write = fopen("out.html", "a");
+    fputs(title, write);
     fclose(write);
 }
 void appendColor(double r, double g, double b){
@@ -125,22 +166,76 @@ void finalizeFile(){
     fclose(write);
 }
 
-int main(){
-    double r, g, b, angulo;
-    int vezes;
-    newFile();
+void newPalette(double r, double g, double b){
+    char tipo;
+    printf("Tipo de paletta: MATIZ / SATURACAO / BRILHO (m/s/b) --> ");
+    scanf(" %c", &tipo);
+    if (tipo != 'm' && tipo != 's' && tipo != 'b') tipo = 'm';
 
-    printf("Quantas cores?\n");
-    scanf(" %d", &vezes);
-    printf("R G B:\n");
-    scanf(" %lf %lf %lf", &r, &g, &b);
-    printf("Angulo de rotacao\n");
-    scanf(" %lf", &angulo);
-
-    do{
-        rotateColor(&r, &g, &b, angulo);
+    int v = 5;
+    double ans;
+    if (tipo == 'm'){
+        printf("Angulo de rotacao: ");
+        scanf(" %lf", &ans);
+        appendTitle("<p>Paleta de matiz</p>");
         appendColor(r, g, b);
-    }while(vezes-- > 1);
+        while (v-- > 0){
+            rotateColor(&r, &g, &b, ans);
+            appendColor(r, g, b);
+        }
+        return;
+    }
+    printf("Valor para mudar (em porcento): ");
+    scanf(" %lf", &ans);
+    ans/=100;
+    if (ans > 1) ans = 1;
+    if (ans < -1) ans = -1;
+
+    if (tipo == 's'){
+        appendTitle("<p>Paleta de saturação</p>");
+        appendColor(r, g, b);
+
+        while (v-- > 0){
+            saturateColor(&r, &g, &b, ans);
+            appendColor(r, g, b);
+        }
+    }
+    else if (tipo == 'b'){
+        appendTitle("<p>Paleta de brilho</p>");
+        appendColor(r, g, b);
+        while (v-- > 0){
+            lightColor(&r, &g, &b, ans);
+            appendColor(r, g, b);
+        }
+    }
+}
+
+
+int main(){
+    newFile();
+    double r, g, b;
+    char hexcor[7];
+    char hexr[3];
+    char hexg[3];
+    char hexb[3];
+    printf("Sua cor em HEX: ");
+    scanf(" %s", hexcor);
+
+    memcpy(hexr, &hexcor, 2);
+    memcpy(hexg, &hexcor[2], 2);
+    memcpy(hexb, &hexcor[4], 2);
+
+    char ans = 'n';
+    while(ans != 's'){
+        r = hextodouble(hexr, 2);
+        g = hextodouble(hexg, 2);
+        b = hextodouble(hexb, 2);
+        newPalette(r, g, b);
+
+        printf("Satisfeito? s/n --> ");
+        scanf(" %c", &ans);
+    }
+
     finalizeFile();
     printf("Resultado em out.html");
     
